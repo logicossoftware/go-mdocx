@@ -8,6 +8,7 @@ import (
 	"io"
 )
 
+// Function variables for testing injection.
 var (
 	gobEncodeMarkdown = func(v MarkdownBundle) ([]byte, error) { return gobEncode(v) }
 	gobEncodeMedia    = func(v MediaBundle) ([]byte, error) { return gobEncode(v) }
@@ -15,9 +16,24 @@ var (
 
 // Encode writes doc to w using the MDOCX v1 container format.
 //
-// By default, Encode will auto-populate SHA256 hashes for MediaItems that have a
-// zero hash. This modifies doc in place. Use WithAutoPopulateSHA256(false) to
-// disable this behavior if you need doc to remain unmodified.
+// The document is validated before writing. Validation includes checking that:
+//   - BundleVersion fields are set to VersionV1
+//   - At least one Markdown file exists
+//   - All paths and IDs are unique and valid
+//   - SHA256 hashes match (if non-zero and verification is enabled)
+//   - Size limits are not exceeded
+//
+// By default, Encode will:
+//   - Use Zstandard (CompZSTD) compression for both sections
+//   - Auto-populate SHA256 hashes for MediaItems with zero hash (modifies doc in place)
+//   - Verify any non-zero SHA256 hashes match the data
+//
+// Use WriteOption functions to customize this behavior:
+//   - WithAutoPopulateSHA256(false): don't modify doc
+//   - WithMarkdownCompression(comp): change Markdown section compression
+//   - WithMediaCompression(comp): change Media section compression
+//   - WithWriteLimits(l): set custom size limits
+//   - WithVerifyHashesOnWrite(false): skip hash verification
 func Encode(w io.Writer, doc *Document, opts ...WriteOption) error {
 	cfg := writeConfig{
 		limits:           defaultLimits(),
@@ -122,6 +138,7 @@ func Encode(w io.Writer, doc *Document, opts ...WriteOption) error {
 	return err
 }
 
+// gobEncode serializes v using Go's gob encoding.
 func gobEncode[T any](v T) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)

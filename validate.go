@@ -8,6 +8,15 @@ import (
 	"unicode/utf8"
 )
 
+// validateDocument validates a Document against the MDOCX specification and configured limits.
+// It checks:
+//   - BundleVersion fields are VersionV1
+//   - At least one Markdown file exists
+//   - All paths are valid (relative, forward slashes, no ".." segments)
+//   - Paths and IDs are unique within their respective bundles
+//   - Content is valid UTF-8
+//   - Size limits are not exceeded
+//   - SHA256 hashes match (if verifyHashes is true and hashes are non-zero)
 func validateDocument(doc *Document, limits Limits, verifyHashes bool) error {
 	if doc == nil {
 		return fmt.Errorf("%w: document is nil", ErrValidation)
@@ -80,6 +89,12 @@ func validateDocument(doc *Document, limits Limits, verifyHashes bool) error {
 	return nil
 }
 
+// validateContainerPath validates that a path conforms to MDOCX container path rules:
+//   - Must not be empty or whitespace-only
+//   - Must not be absolute (no leading "/")
+//   - Must use forward slashes only
+//   - Must be normalized (no "./" or "//")
+//   - Must not escape (no ".." segments)
 func validateContainerPath(p string) error {
 	if strings.TrimSpace(p) == "" {
 		return fmt.Errorf("path is empty")

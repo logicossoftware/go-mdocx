@@ -9,6 +9,25 @@ import (
 )
 
 // Decode reads an MDOCX document from r.
+//
+// The decoding process:
+//  1. Reads and validates the 32-byte fixed header
+//  2. Reads and parses the optional metadata block as JSON
+//  3. Reads and decompresses the Markdown bundle section
+//  4. Reads and decompresses the Media bundle section
+//  5. Validates the complete document
+//
+// By default, Decode will:
+//   - Use safe default size limits (see [DefaultLimits])
+//   - Verify SHA256 hashes if present
+//
+// Use ReadOption functions to customize this behavior:
+//   - WithReadLimits(l): set custom size limits
+//   - WithVerifyHashes(false): skip hash verification
+//
+// Decode returns ErrInvalidMagic if the file is not an MDOCX file,
+// ErrUnsupportedVersion if the version is not 1, ErrLimitExceeded if
+// any size limit is exceeded, or ErrValidation if the document fails validation.
 func Decode(r io.Reader, opts ...ReadOption) (*Document, error) {
 	cfg := readConfig{limits: defaultLimits(), verifyHashes: true}
 	for _, opt := range opts {
@@ -110,6 +129,7 @@ func Decode(r io.Reader, opts ...ReadOption) (*Document, error) {
 	return doc, nil
 }
 
+// gobDecode deserializes data into out using Go's gob encoding.
 func gobDecode(data []byte, out any) error {
 	dec := gob.NewDecoder(bytes.NewReader(data))
 	return dec.Decode(out)

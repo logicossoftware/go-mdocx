@@ -6,23 +6,28 @@ import (
 	"io"
 )
 
+// fixedHeaderV1 represents the 32-byte fixed header at the start of an MDOCX file.
+// All integer fields are little-endian encoded.
 type fixedHeaderV1 struct {
-	Magic          [8]byte
-	Version        uint16
-	HeaderFlags    uint16
-	FixedHdrSize   uint32
-	MetadataLength uint32
-	Reserved0      uint32
-	Reserved1      uint64
+	Magic          [8]byte // File signature: "MDOCX\r\n" + 0x1A
+	Version        uint16  // Format version (must be 1)
+	HeaderFlags    uint16  // Flags (bit 0 = METADATA_JSON)
+	FixedHdrSize   uint32  // Must be 32
+	MetadataLength uint32  // Length of metadata block in bytes
+	Reserved0      uint32  // Must be 0 for v1
+	Reserved1      uint64  // Must be 0 for v1
 }
 
+// sectionHeaderV1 represents the 16-byte header that precedes each section payload.
+// All integer fields are little-endian encoded.
 type sectionHeaderV1 struct {
-	SectionType  uint16
-	SectionFlags uint16
-	PayloadLen   uint64
-	Reserved     uint32
+	SectionType  uint16 // 1 = Markdown, 2 = Media
+	SectionFlags uint16 // Compression algorithm and flags
+	PayloadLen   uint64 // Payload length in bytes
+	Reserved     uint32 // Must be 0 for v1
 }
 
+// readFixedHeader reads and parses the 32-byte fixed header from r.
 func readFixedHeader(r io.Reader) (fixedHeaderV1, error) {
 	var buf [fixedHeaderSizeV1]byte
 	if _, err := io.ReadFull(r, buf[:]); err != nil {
@@ -39,6 +44,7 @@ func readFixedHeader(r io.Reader) (fixedHeaderV1, error) {
 	return h, nil
 }
 
+// writeFixedHeader serializes and writes the 32-byte fixed header to w.
 func writeFixedHeader(w io.Writer, h fixedHeaderV1) error {
 	var buf [fixedHeaderSizeV1]byte
 	copy(buf[0:8], h.Magic[:])
@@ -52,6 +58,7 @@ func writeFixedHeader(w io.Writer, h fixedHeaderV1) error {
 	return err
 }
 
+// readSectionHeader reads and parses a 16-byte section header from r.
 func readSectionHeader(r io.Reader) (sectionHeaderV1, error) {
 	var buf [16]byte
 	if _, err := io.ReadFull(r, buf[:]); err != nil {
@@ -65,6 +72,7 @@ func readSectionHeader(r io.Reader) (sectionHeaderV1, error) {
 	return sh, nil
 }
 
+// writeSectionHeader serializes and writes a 16-byte section header to w.
 func writeSectionHeader(w io.Writer, sh sectionHeaderV1) error {
 	var buf [16]byte
 	binary.LittleEndian.PutUint16(buf[0:2], sh.SectionType)
@@ -75,14 +83,18 @@ func writeSectionHeader(w io.Writer, sh sectionHeaderV1) error {
 	return err
 }
 
+// compression extracts the compression algorithm from the section flags.
 func (sh sectionHeaderV1) compression() Compression {
 	return Compression(sh.SectionFlags & sectionFlagCompressionMask)
 }
 
+// hasUncompressedLen returns whether the HAS_UNCOMPRESSED_LEN flag is set.
 func (sh sectionHeaderV1) hasUncompressedLen() bool {
 	return (sh.SectionFlags & sectionFlagHasUncompressedLen) != 0
 }
 
+// validateSectionHeader validates that a section header is well-formed and has the expected type.
+// It checks the section type, reserved fields, and compression flag consistency.
 func validateSectionHeader(sh sectionHeaderV1, expected SectionType) error {
 	if sh.Reserved != 0 {
 		return fmt.Errorf("%w: reserved must be 0", ErrInvalidSection)

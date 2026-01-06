@@ -1,17 +1,49 @@
 package mdocx
 
+// Limits defines size and count limits enforced during encoding and decoding.
+// These limits protect against resource exhaustion from malformed or malicious input.
+//
+// Zero values for any field will be replaced with safe defaults when used.
+// To disable a limit, set it to a very large value (not zero).
+//
+// Default limits are based on the MDOCX specification recommendations:
+//   - MaxMetadataLen: 1 MiB
+//   - MaxMarkdownSectionLen: 1 GiB (compressed payload)
+//   - MaxMediaSectionLen: 4 GiB (compressed payload)
+//   - MaxMarkdownUncompressed: 256 MiB
+//   - MaxMediaUncompressed: 2 GiB
+//   - MaxMarkdownFiles: 10,000
+//   - MaxMediaItems: 10,000
+//   - MaxSingleMarkdownFileSize: 256 MiB
+//   - MaxSingleMediaSize: 512 MiB
 type Limits struct {
-	MaxMetadataLen            uint32
-	MaxMarkdownSectionLen     uint64 // compressed payload length as stored in file
-	MaxMediaSectionLen        uint64 // compressed payload length as stored in file
-	MaxMarkdownUncompressed   uint64 // gob bytes after decompression
-	MaxMediaUncompressed      uint64 // gob bytes after decompression
-	MaxMarkdownFiles          int
-	MaxMediaItems             int
+	// MaxMetadataLen is the maximum allowed length of the metadata JSON block in bytes.
+	MaxMetadataLen uint32
+	// MaxMarkdownSectionLen is the maximum compressed payload length for the Markdown section.
+	MaxMarkdownSectionLen uint64
+	// MaxMediaSectionLen is the maximum compressed payload length for the Media section.
+	MaxMediaSectionLen uint64
+	// MaxMarkdownUncompressed is the maximum decompressed size of the Markdown gob payload.
+	MaxMarkdownUncompressed uint64
+	// MaxMediaUncompressed is the maximum decompressed size of the Media gob payload.
+	MaxMediaUncompressed uint64
+	// MaxMarkdownFiles is the maximum number of Markdown files allowed in the bundle.
+	MaxMarkdownFiles int
+	// MaxMediaItems is the maximum number of media items allowed in the bundle.
+	MaxMediaItems int
+	// MaxSingleMarkdownFileSize is the maximum size of a single Markdown file's content.
 	MaxSingleMarkdownFileSize uint64
-	MaxSingleMediaSize        uint64
+	// MaxSingleMediaSize is the maximum size of a single media item's data.
+	MaxSingleMediaSize uint64
 }
 
+// DefaultLimits returns the default size limits as recommended by the MDOCX specification.
+// These defaults provide a reasonable balance between flexibility and security.
+func DefaultLimits() Limits {
+	return defaultLimits()
+}
+
+// defaultLimits returns the internal default limits configuration.
 func defaultLimits() Limits {
 	return Limits{
 		MaxMetadataLen:            1 << 20,   // 1 MiB
@@ -26,6 +58,7 @@ func defaultLimits() Limits {
 	}
 }
 
+// withDefaults returns a copy of l with zero fields replaced by default values.
 func (l Limits) withDefaults() Limits {
 	d := defaultLimits()
 	if l.MaxMetadataLen == 0 {

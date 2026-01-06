@@ -1,7 +1,6 @@
 package mdocx // import "github.com/logicossoftware/go-mdocx"
 
-Package mdocx implements the MDOCX (MarkDown Open Container eXchange) container
-format.
+# Package mdocx implements the MDOCX (MarkDown Open Container eXchange) container format.
 
 MDOCX is a single-file container format for bundling one or more Markdown
 documents together with referenced binary media (images, audio, video, etc.).

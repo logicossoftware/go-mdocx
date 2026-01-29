@@ -185,6 +185,57 @@ extern __declspec(dllexport) int MdocxGetMarkdownCount(char* data, int dataLen);
 //
 extern __declspec(dllexport) int MdocxGetMediaCount(char* data, int dataLen);
 
+// MdocxListMedia returns a JSON array of all media items in an MDOCX document.
+// Each item contains: id, path, mimeType, dataLen, attributes.
+// Returns MdocxResult with JSON array or error. Call MdocxFreeResult when done.
+//
+extern __declspec(dllexport) MdocxResult MdocxListMedia(char* data, int dataLen);
+
+// MdocxGetMediaIDs returns a JSON array of all media item IDs.
+// Returns MdocxResult with JSON string array or error. Call MdocxFreeResult when done.
+//
+extern __declspec(dllexport) MdocxResult MdocxGetMediaIDs(char* data, int dataLen);
+
+// MdocxGetMediaPaths returns a JSON array of all non-empty media item paths.
+// Returns MdocxResult with JSON string array or error. Call MdocxFreeResult when done.
+//
+extern __declspec(dllexport) MdocxResult MdocxGetMediaPaths(char* data, int dataLen);
+
+// MdocxGetMediaByPath retrieves the raw data for a media item by its container path.
+// Parameters:
+//   - data: pointer to MDOCX file bytes
+//   - dataLen: length of the data
+//   - mediaPath: the container path of the media item (e.g., "assets/logo.png")
+//
+// Returns MdocxResult with media data or error. Call MdocxFreeResult when done.
+//
+extern __declspec(dllexport) MdocxResult MdocxGetMediaByPath(char* data, int dataLen, char* mediaPath);
+
+// MdocxResolveMediaRef resolves a media reference (mdocx://media/<ID> or path) to raw data.
+// Parameters:
+//   - data: pointer to MDOCX file bytes
+//   - dataLen: length of the data
+//   - ref: the reference string (e.g., "mdocx://media/logo" or "assets/logo.png")
+//
+// Returns MdocxResult with media data or error. Call MdocxFreeResult when done.
+//
+extern __declspec(dllexport) MdocxResult MdocxResolveMediaRef(char* data, int dataLen, char* ref);
+
+// MdocxGetMediaInfo returns JSON metadata for a media item by ID (without the data).
+// Returns: {"id", "path", "mimeType", "dataLen", "attributes"}
+//
+extern __declspec(dllexport) MdocxResult MdocxGetMediaInfo(char* data, int dataLen, char* mediaID);
+
+// MdocxHasMediaID checks if a media item with the given ID exists.
+// Returns 1 if found, 0 if not found, -1 on error.
+//
+extern __declspec(dllexport) int MdocxHasMediaID(char* data, int dataLen, char* mediaID);
+
+// MdocxHasMediaPath checks if a media item with the given path exists.
+// Returns 1 if found, 0 if not found, -1 on error.
+//
+extern __declspec(dllexport) int MdocxHasMediaPath(char* data, int dataLen, char* mediaPath);
+
 #ifdef __cplusplus
 }
 #endif

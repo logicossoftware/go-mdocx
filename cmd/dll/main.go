@@ -349,3 +349,224 @@ func MdocxGetMediaCount(data *C.char, dataLen C.int) C.int {
 	}
 	return C.int(len(doc.Media.Items))
 }
+
+// MdocxListMedia returns a JSON array of all media items in an MDOCX document.
+// Each item contains: id, path, mimeType, dataLen, attributes.
+// Returns MdocxResult with JSON array or error. Call MdocxFreeResult when done.
+//
+//export MdocxListMedia
+func MdocxListMedia(data *C.char, dataLen C.int) C.MdocxResult {
+	goData := C.GoBytes(unsafe.Pointer(data), dataLen)
+	reader := bytes.NewReader(goData)
+
+	items, err := mdocx.ListMediaContents(reader)
+	if err != nil {
+		return makeError(err)
+	}
+
+	result := make([]map[string]any, len(items))
+	for i, item := range items {
+		result[i] = map[string]any{
+			"id":         item.ID,
+			"path":       item.Path,
+			"mimeType":   item.MIMEType,
+			"dataLen":    len(item.Data),
+			"attributes": item.Attributes,
+		}
+	}
+
+	jsonBytes, err := json.Marshal(result)
+	if err != nil {
+		return makeError(err)
+	}
+
+	return makeResult(jsonBytes)
+}
+
+// MdocxGetMediaIDs returns a JSON array of all media item IDs.
+// Returns MdocxResult with JSON string array or error. Call MdocxFreeResult when done.
+//
+//export MdocxGetMediaIDs
+func MdocxGetMediaIDs(data *C.char, dataLen C.int) C.MdocxResult {
+	goData := C.GoBytes(unsafe.Pointer(data), dataLen)
+	reader := bytes.NewReader(goData)
+
+	doc, err := mdocx.Decode(reader)
+	if err != nil {
+		return makeError(err)
+	}
+
+	resolver := mdocx.NewMediaResolver(doc)
+	ids := resolver.IDs()
+
+	jsonBytes, err := json.Marshal(ids)
+	if err != nil {
+		return makeError(err)
+	}
+
+	return makeResult(jsonBytes)
+}
+
+// MdocxGetMediaPaths returns a JSON array of all non-empty media item paths.
+// Returns MdocxResult with JSON string array or error. Call MdocxFreeResult when done.
+//
+//export MdocxGetMediaPaths
+func MdocxGetMediaPaths(data *C.char, dataLen C.int) C.MdocxResult {
+	goData := C.GoBytes(unsafe.Pointer(data), dataLen)
+	reader := bytes.NewReader(goData)
+
+	doc, err := mdocx.Decode(reader)
+	if err != nil {
+		return makeError(err)
+	}
+
+	resolver := mdocx.NewMediaResolver(doc)
+	paths := resolver.Paths()
+
+	jsonBytes, err := json.Marshal(paths)
+	if err != nil {
+		return makeError(err)
+	}
+
+	return makeResult(jsonBytes)
+}
+
+// MdocxGetMediaByPath retrieves the raw data for a media item by its container path.
+// Parameters:
+//   - data: pointer to MDOCX file bytes
+//   - dataLen: length of the data
+//   - mediaPath: the container path of the media item (e.g., "assets/logo.png")
+//
+// Returns MdocxResult with media data or error. Call MdocxFreeResult when done.
+//
+//export MdocxGetMediaByPath
+func MdocxGetMediaByPath(data *C.char, dataLen C.int, mediaPath *C.char) C.MdocxResult {
+	goData := C.GoBytes(unsafe.Pointer(data), dataLen)
+	reader := bytes.NewReader(goData)
+	path := C.GoString(mediaPath)
+
+	doc, err := mdocx.Decode(reader)
+	if err != nil {
+		return makeError(err)
+	}
+
+	resolver := mdocx.NewMediaResolver(doc)
+	item := resolver.GetByPath(path)
+	if item == nil {
+		var result C.MdocxResult
+		result.error = C.CString("media item not found: " + path)
+		return result
+	}
+
+	return makeResult(item.Data)
+}
+
+// MdocxResolveMediaRef resolves a media reference (mdocx://media/<ID> or path) to raw data.
+// Parameters:
+//   - data: pointer to MDOCX file bytes
+//   - dataLen: length of the data
+//   - ref: the reference string (e.g., "mdocx://media/logo" or "assets/logo.png")
+//
+// Returns MdocxResult with media data or error. Call MdocxFreeResult when done.
+//
+//export MdocxResolveMediaRef
+func MdocxResolveMediaRef(data *C.char, dataLen C.int, ref *C.char) C.MdocxResult {
+	goData := C.GoBytes(unsafe.Pointer(data), dataLen)
+	reader := bytes.NewReader(goData)
+	refStr := C.GoString(ref)
+
+	doc, err := mdocx.Decode(reader)
+	if err != nil {
+		return makeError(err)
+	}
+
+	resolver := mdocx.NewMediaResolver(doc)
+	item := resolver.Resolve(refStr)
+	if item == nil {
+		var result C.MdocxResult
+		result.error = C.CString("media reference not found: " + refStr)
+		return result
+	}
+
+	return makeResult(item.Data)
+}
+
+// MdocxGetMediaInfo returns JSON metadata for a media item by ID (without the data).
+// Returns: {"id", "path", "mimeType", "dataLen", "attributes"}
+//
+//export MdocxGetMediaInfo
+func MdocxGetMediaInfo(data *C.char, dataLen C.int, mediaID *C.char) C.MdocxResult {
+	goData := C.GoBytes(unsafe.Pointer(data), dataLen)
+	reader := bytes.NewReader(goData)
+	id := C.GoString(mediaID)
+
+	doc, err := mdocx.Decode(reader)
+	if err != nil {
+		return makeError(err)
+	}
+
+	resolver := mdocx.NewMediaResolver(doc)
+	item := resolver.GetByID(id)
+	if item == nil {
+		var result C.MdocxResult
+		result.error = C.CString("media item not found: " + id)
+		return result
+	}
+
+	info := map[string]any{
+		"id":         item.ID,
+		"path":       item.Path,
+		"mimeType":   item.MIMEType,
+		"dataLen":    len(item.Data),
+		"attributes": item.Attributes,
+	}
+
+	jsonBytes, err := json.Marshal(info)
+	if err != nil {
+		return makeError(err)
+	}
+
+	return makeResult(jsonBytes)
+}
+
+// MdocxHasMediaID checks if a media item with the given ID exists.
+// Returns 1 if found, 0 if not found, -1 on error.
+//
+//export MdocxHasMediaID
+func MdocxHasMediaID(data *C.char, dataLen C.int, mediaID *C.char) C.int {
+	goData := C.GoBytes(unsafe.Pointer(data), dataLen)
+	reader := bytes.NewReader(goData)
+	id := C.GoString(mediaID)
+
+	doc, err := mdocx.Decode(reader)
+	if err != nil {
+		return -1
+	}
+
+	resolver := mdocx.NewMediaResolver(doc)
+	if resolver.HasID(id) {
+		return 1
+	}
+	return 0
+}
+
+// MdocxHasMediaPath checks if a media item with the given path exists.
+// Returns 1 if found, 0 if not found, -1 on error.
+//
+//export MdocxHasMediaPath
+func MdocxHasMediaPath(data *C.char, dataLen C.int, mediaPath *C.char) C.int {
+	goData := C.GoBytes(unsafe.Pointer(data), dataLen)
+	reader := bytes.NewReader(goData)
+	path := C.GoString(mediaPath)
+
+	doc, err := mdocx.Decode(reader)
+	if err != nil {
+		return -1
+	}
+
+	resolver := mdocx.NewMediaResolver(doc)
+	if resolver.HasPath(path) {
+		return 1
+	}
+	return 0
+}
